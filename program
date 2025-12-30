@@ -1,0 +1,70 @@
+import time
+import requests
+from bs4 import BeautifulSoup
+from twilio.rest import Client
+ACCOUNT_SID = "xxxxxxx"
+AUTH_TOKEN  = "xxxxxx"
+# Twilio WhatsApp Sandbox number
+FROM_WHATSAPP = "whatsapp:xxxxx"
+# Your WhatsApp
+TO_WHATSAPP   = "whatsapp:xxxxxxxx"
+# Movie page
+MOVIE_URL = "https://in.bookmyshow.com/movies/jana-nayagan/ET00430817"
+# Popular Chennai theatres
+THEATRE_URLS = {
+    "Rohini Silver Screens": "https://in.bookmyshow.com/chennai/cinemas/rohini-silver-screens-koyambedu/RSSC",
+    "Kamala Cinemas":        "https://in.bookmyshow.com/chennai/cinemas/kamala-cinemas-vadapalani/KSVC",
+    "Vetri Cinemas":         "https://in.bookmyshow.com/chennai/cinemas/vetri-theatre-chrompet/VTCP",
+    "GK Cinemas":            "https://in.bookmyshow.com/chennai/cinemas/gk-cinemas-chennai/CKGJ",
+    "PVR VR Mall":           "https://in.bookmyshow.com/chennai/cinemas/pvr-vr-mall-anna-nagar-chennai/PVRV",
+    "AGS Cinemas Navallur":  "https://in.bookmyshow.com/chennai/cinemas/ags-navalur/ACS3"
+}
+client = Client(ACCOUNT_SID, AUTH_TOKEN)
+def send_alert(msg):
+    try:
+        client.messages.create(body=msg, from_=FROM_WHATSAPP, to=TO_WHATSAPP)
+        print("\n🚨 WhatsApp Alert Sent! 🚨\n", msg)
+    except Exception as e:
+        print("❌ Failed to send WhatsApp alert:", e)
+
+#       CHECK BOOKING
+def check_booking_global():
+    """Checks if BookMyShow shows 'Book Tickets' on the main movie page"""
+    try:
+        page = requests.get(MOVIE_URL, timeout=10).text
+        soup = BeautifulSoup(page, "html.parser")
+        return "Book tickets" in soup.get_text()
+    except:
+        return False
+def check_theatres():
+    """Checks which Chennai theatres list the movie"""
+    available = []
+    for name, url in THEATRE_URLS.items():
+        try:
+            page = requests.get(url, timeout=10).text
+            if "Jana Nayagan" in page:
+                available.append(name)
+        except:
+            pass
+    return available
+#       MAIN LOOP
+print("🔍 Starting 24/7 monitoring for Jana Nayagan bookings in Chennai...\n")
+
+while True:
+    try:
+        print("⏳ Checking booking status...")
+        if check_booking_global():
+            print("🎉 Booking OPEN globally! Checking Chennai theatres...")
+            theatres_live = check_theatres()
+            if theatres_live:
+                msg = "🎉 *Jana Nayagan* Booking LIVE in Chennai!\n\n" + "\n".join(theatres_live)
+                send_alert(msg)
+                break
+            else:
+                print("📌 Booking started but Chennai theatres not showing yet.")
+        else:
+            print("❗ Still not live...")
+    except Exception as e:
+        print("⚠️ Error:", e)
+    print("🔁 Rechecking in 10 minutes...\n")
+    time.sleep(600)  # 10 minutes (600 seconds)
